@@ -1,0 +1,277 @@
+schedules:
+  - tasks: "new movies *"
+    interval:
+      minutes: 10
+  - tasks: ["download *"]
+    interval:
+      minutes: 30 
+
+web_server: yes
+
+templates:
+  notify:
+    notify:
+      task:
+        template: html
+        via:
+          - email:
+              from: <FLEXGET_EMAIL>
+              to: <YOUR_EMAIL>
+              smtp_host: smtp.gmail.com
+              smtp_port: 587
+              smtp_username: <FLEXGET_EMAIL_LOGIN>
+              smtp_password: <FLEXGET_EMAIL_PASSWORD>
+              smtp_tls: yes
+              html: yes
+
+  deluge:
+    set:
+      path: "/Volumes/External/Downloads/"
+    deluge:
+      host: <DELUGE_HOST>
+      username: <DELUGE_USERNAME>
+      password: <DELUGE_PASSWORD>
+      ratio: 3.0
+      removeatratio: yes
+      compact: yes
+
+  rutracker:
+    headers:
+      User-Agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36'
+    rutracker_auth:
+      username: <RUTRACKER_USERNAME>
+      password: <RUTRACKER_PASSWORD>
+
+  new_movies:
+    headers:
+      User-Agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36'
+    parsing:
+      movie: guessit
+    content_filter:
+      require:
+        - '*.avi'
+        - '*.mkv'
+        - '*.mp4'
+        - '*.webm'
+        - '*.m4p'
+        - '*.m4v'
+        - '*.mpg'
+        - '*.mpeg'
+    content_size:
+      min: 1300
+      max: 16384
+    metainfo_movie: yes
+    imdb_lookup: yes
+    if:
+      - imdb_year < now.year - 35: reject
+      - "' 3D' in title":
+          set:
+            movedone: "/Volumes/External/Movies 3D/{{ movie_name }} ({{ movie_year }})"
+      - "' 3D' not in title":
+          set:
+            movedone: "/Volumes/External/Movies/{{ movie_name }} ({{ movie_year }})"
+    manipulate:
+      - title:
+          replace:
+            regexp: '^\[Обновлено\]\s*'
+            format: ''
+      - title:
+          replace:
+            regexp: '&#039;'
+            format: ''''
+      - title:
+          replace:
+            regexp: 'bdremux'
+            format: 'remux'
+      - raw_title:
+          from: title
+      - year:
+          from: raw_title
+      - year:
+          extract: '.*\[(\d{4}).*'
+      - year:
+          extract: '.*\s+\((\d{4})\).*'
+      - year:
+          extract: '.*__(\d{4})__.*'
+      - title:
+          replace:
+            regexp: '^\(|\)$'
+            format: ''
+      - title:
+          replace:
+            regexp: '_'
+            format: ' '
+      - title:
+          replace:
+            regexp: '^\s+'
+            format: ''
+      - title:
+          replace:
+            regexp: '\s{2,}'
+            format: ' '
+      - original_title:
+          from: raw_title
+          extract: '.* / (.*?) \('
+    regexp:
+      reject:
+        - disc
+        - dubbed
+        - Open Matte
+        - Open mate
+        - Расширенная версия
+        - Extended cut
+        - Director's Cut
+        - Режиссерская версия
+        - Skiptrace
+    imdb:
+      min_score: 4.5
+      min_votes: 1000
+      reject_genres:
+        - musical
+        - music
+    download: /root/.flexget/torrents/
+    list_add:
+      - entry_list: movies_list
+
+  remove translated title:
+    manipulate:
+      - title:
+          replace:
+            regexp: '^([\dа-яА-ЯёЁ :;''.,!?()-]+/\s)+'
+            format: ''
+
+  rutracker translation filter:
+    regexp:
+      reject_excluding:
+        - \] dub|Лицензия|iTunes
+    template:
+      - remove translated title
+ 
+  extract russian name:
+    manipulate:
+      - title:
+          extract: '^([\dа-яА-ЯёЁ :;''.,!?a-zA-Z-]+?)\s+[\[(]'
+
+  rutor translation filter:
+    regexp:
+      reject_excluding:
+        - \| (?:D|Лицензия|iTunes)(?:$|,)
+    template:
+      - remove translated title
+
+  rutor movies:
+    quality: 720p-1080p r5+ !dvdscr !preair !sdtv !dvdscr !bdscr
+    priority: 3
+    regexp:
+      reject:
+        - \| iPad
+        - \| iPhone
+    manipulate:
+      - filename:
+          from: title
+      - filename:
+          extract: ([^\)\()]+\.torrent)
+      - title:
+          replace:
+            regexp: '\s+\([^)]+\.torrent\)'
+            format: ''
+    template:
+      - new_movies
+
+tasks:
+  new movies foreign hd:
+    rss: http://feed.rutracker.org/atom/f/313.atom
+    quality: 720p-1080p r5+ !dvdscr !preair !sdtv !dvdscr !bdscr
+    priority: 1
+    template:
+      - rutracker
+      - new_movies
+      - rutracker translation filter
+
+  new movies russian hd:
+    rss: http://feed.rutracker.org/atom/f/312.atom
+    quality: 720p-1080p r5+ !dvdscr !preair !sdtv !dvdscr !bdscr
+    priority: 1
+    template:
+      - rutracker
+      - new_movies
+      - extract russian name
+
+  new movies 2011-2015:
+    rss: http://feed.rutracker.org/atom/f/2093.atom
+    priority: 3
+    quality: r5+ !dvdscr !preair !sdtv !dvdscr !bdscr
+    template:
+      - rutracker
+      - new_movies
+      - rutracker translation filter
+
+  new movies 2016-2017:
+    rss: http://feed.rutracker.org/atom/f/2200.atom
+    priority: 3
+    quality: r5+ !dvdscr !preair !sdtv !dvdscr !bdscr
+    template:
+      - rutracker
+      - new_movies
+      - rutracker translation filter
+
+  new movies 2006-2010:
+    rss: http://feed.rutracker.org/atom/f/2092.atom
+    priority: 3
+    quality: r5+ !dvdscr !preair !sdtv !dvdscr !bdscr
+    template:
+      - rutracker
+      - new_movies
+      - rutracker translation filter
+
+  new movies rutor foreign:
+    rss: http://rutor.info/rss.php?cat=1
+    priority: 1
+    template:
+      - rutor movies
+      - rutor translation filter
+
+  new movies rutor animations:
+    rss: http://rutor.info/rss.php?cat=7
+    priority: 1
+    template:
+      - rutor movies
+      - rutor translation filter
+
+  new movies rutor russian:
+    rss: http://rutor.info/rss.php?cat=5
+    priority: 1
+    template:
+      - rutor movies
+      - extract russian name
+
+  download good movies:
+    entry_list: movies_list
+    manipulate:
+      - quality:
+          remove: yes
+    seen_movies:
+      scope: local
+    seen: local
+    seen_info_hash: local
+    timeframe:
+      wait: 1 day 
+      on_reached: do_nothing
+      target: 1080p
+    priority: 5
+    imdb:
+      min_score: 6.3
+      min_votes: 1000
+      reject_genres:
+        - documentary
+        - musical
+        - music
+        - history
+        - biography
+        - war
+    list_remove:
+      - entry_list: movies_list
+    template:
+      - rutracker
+      - deluge
+      - notify
