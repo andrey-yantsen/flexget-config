@@ -1,10 +1,10 @@
 schedules:
-  - tasks: "new movies *"
+  - tasks: ["new movies *"]
     interval:
       minutes: 10
   - tasks: ["download *"]
     interval:
-      minutes: 30 
+      minutes: 15
 
 web_server: yes
 
@@ -31,7 +31,7 @@ templates:
       host: <DELUGE_HOST>
       username: <DELUGE_USERNAME>
       password: <DELUGE_PASSWORD>
-      ratio: 3.0
+      ratio: 5.0
       removeatratio: yes
       compact: yes
 
@@ -63,13 +63,18 @@ templates:
     metainfo_movie: yes
     imdb_lookup: yes
     if:
-      - imdb_year < now.year - 35: reject
-      - "' 3D' in title":
-          set:
-            movedone: "/Volumes/External/Movies 3D/{{ movie_name }} ({{ movie_year }})"
+      - "' 3D' in title": reject
       - "' 3D' not in title":
           set:
             movedone: "/Volumes/External/Movies/{{ movie_name }} ({{ movie_year }})"
+      - quality < '1080p':
+          content_size:
+            min: 1300
+            max: 5120
+      - quality > '720p':
+          content_size:
+            min: 4915
+            max: 16384
     manipulate:
       - title:
           replace:
@@ -77,7 +82,7 @@ templates:
             format: ''
       - title:
           replace:
-            regexp: '&#039;'
+            regexp: '&#?039;'
             format: ''''
       - title:
           replace:
@@ -126,10 +131,11 @@ templates:
     imdb:
       min_score: 4.5
       min_votes: 1000
+      min_year: 1990
       reject_genres:
         - musical
         - music
-    download: /root/.flexget/torrents/
+    download: /Volumes/External/Downloads/torrents
     list_add:
       - entry_list: movies_list
 
@@ -137,7 +143,7 @@ templates:
     manipulate:
       - title:
           replace:
-            regexp: '^([\dа-яА-ЯёЁ :;''.,!?()-]+/\s)+'
+            regexp: '^([\dа-яА-ЯёЁ :;''.,!?()"''«»-]+/\s)+'
             format: ''
 
   rutracker translation filter:
@@ -146,7 +152,7 @@ templates:
         - \] dub|Лицензия|iTunes
     template:
       - remove translated title
- 
+
   extract russian name:
     manipulate:
       - title:
@@ -255,9 +261,11 @@ tasks:
     seen: local
     seen_info_hash: local
     timeframe:
-      wait: 1 day 
+      wait: 14 days
       on_reached: do_nothing
       target: 1080p
+    if:
+      - int(movie_year) > 2010 and quality < '1080p': reject
     priority: 5
     imdb:
       min_score: 6.3
