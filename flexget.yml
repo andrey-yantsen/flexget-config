@@ -261,7 +261,7 @@ tasks:
     seen: local
     seen_info_hash: local
     timeframe:
-      wait: 14 days
+      wait: 2 days
       on_reached: do_nothing
       target: 1080p
     if:
