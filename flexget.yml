@@ -32,7 +32,7 @@ templates:
       username: <DELUGE_USERNAME>
       password: <DELUGE_PASSWORD>
       ratio: 5.0
-      removeatratio: yes
+      remove_at_ratio: yes
       compact: yes
 
   rutracker:
@@ -58,23 +58,24 @@ templates:
         - '*.mpg'
         - '*.mpeg'
     content_size:
-      min: 1300
-      max: 16384
+      min: 2048
+      max: 14336
     metainfo_movie: yes
     imdb_lookup: yes
     if:
       - "' 3D' in title": reject
       - "' 3D' not in title":
           set:
-            movedone: "/Volumes/External/Movies/{{ movie_name }} ({{ movie_year }})"
-      - quality < '1080p':
-          content_size:
-            min: 1300
-            max: 5120
-      - quality > '720p':
-          content_size:
-            min: 4915
-            max: 16384
+            move_completed_path: "/Volumes/External/Movies/{{ movie_name }} ({{ movie_year }})"
+          if:
+            - quality < '1080p':
+                content_size:
+                    min: 2048
+                    max: 5000
+            - quality >= '1080p':
+                content_size:
+                    min: 3800
+                    max: 14336
     manipulate:
       - title:
           replace:
@@ -82,7 +83,7 @@ templates:
             format: ''
       - title:
           replace:
-            regexp: '&#?039;'
+            regexp: '&039;'
             format: ''''
       - title:
           replace:
@@ -129,12 +130,16 @@ templates:
         - Режиссерская версия
         - Skiptrace
     imdb:
-      min_score: 4.5
+      min_score: 6.3
       min_votes: 1000
       min_year: 1990
       reject_genres:
         - musical
         - music
+        - war
+        - documental
+        - history
+        - biography
     download: /Volumes/External/Downloads/torrents
     list_add:
       - entry_list: movies_list
@@ -251,7 +256,7 @@ tasks:
       - rutor movies
       - extract russian name
 
-  download good movies:
+  download movies:
     entry_list: movies_list
     manipulate:
       - quality:
@@ -260,23 +265,15 @@ tasks:
       scope: local
     seen: local
     seen_info_hash: local
+    accept_all: yes
     timeframe:
-      wait: 2 days
+      wait: 14 days
       on_reached: do_nothing
       target: 1080p
     if:
-      - int(movie_year) > 2010 and quality < '1080p': reject
+      - imdb_year > now.year - 10:
+          quality: 1080p
     priority: 5
-    imdb:
-      min_score: 6.3
-      min_votes: 1000
-      reject_genres:
-        - documentary
-        - musical
-        - music
-        - history
-        - biography
-        - war
     list_remove:
       - entry_list: movies_list
     template:
